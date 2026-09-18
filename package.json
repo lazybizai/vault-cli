@@ -1,10 +1,10 @@
 {
-  "name": "@lazybiz/vault-cli",
+  "name": "lazybiz",
   "version": "1.0.0",
   "description": "Install and update Lazy Biz vault skills into your agent's skills folder.",
   "type": "module",
   "bin": {
-    "vault": "bin/vault.mjs"
+    "lazybiz": "bin/vault.mjs"
   },
   "engines": {
     "node": ">=18"

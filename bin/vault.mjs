@@ -1,14 +1,17 @@
 #!/usr/bin/env node
 /**
- * vault — install and update Lazy Biz vault skills.
+ * lazybiz — install and update Lazy Biz vault skills.
  *
- *   npx github:lazybizai/vault-cli add <skill-id> --key <KEY>
- *   npx github:lazybizai/vault-cli update --key <KEY>
- *   npx github:lazybizai/vault-cli list
+ *   npx lazybiz add <skill-id> --key <KEY>
+ *   npx lazybiz update --key <KEY>
+ *   npx lazybiz list
  *
- * No dependencies on purpose: `npx github:…` installs the package before our
- * first line runs, so every dependency is time the member waits and code we did
- * not write. Node 18 ships everything this needs.
+ * Published on npm as `lazybiz`; `npx github:lazybizai/vault-cli` still works
+ * for anyone who copied the old command.
+ *
+ * No dependencies on purpose: npx installs the package before our first line
+ * runs, so every dependency is time the member waits and code we did not
+ * write. Node 18 ships everything this needs.
  */
 import fs from 'node:fs'
 import path from 'node:path'
@@ -28,14 +31,14 @@ const pkg = JSON.parse(
   fs.readFileSync(path.join(path.dirname(fileURLToPath(import.meta.url)), '..', 'package.json'), 'utf8'),
 )
 
-const HELP = `vault ${pkg.version} — install Lazy Biz vault skills
+const HELP = `lazybiz ${pkg.version} — install Lazy Biz vault skills
 
 Usage
-  vault add <skill-id> --key <KEY>     install or reinstall one skill
-  vault update [skill-id] --key <KEY>  reinstall every installed skill whose version changed
-  vault list [--key <KEY>]             show what is installed and what is available
-  vault --help                         this text
-  vault --version                      print the CLI version
+  npx lazybiz add <skill-id> --key <KEY>     install or reinstall one skill
+  npx lazybiz update [skill-id] --key <KEY>  reinstall every installed skill whose version changed
+  npx lazybiz list [--key <KEY>]             show what is installed and what is available
+  npx lazybiz --help                         this text
+  npx lazybiz --version                      print the CLI version
 
 Options
   --key <KEY>        your personal install key. Copy the whole command from the
@@ -129,7 +132,7 @@ async function installOne({ entry, key, baseUrl, root, alias, force }) {
 
 async function cmdAdd(positionals, flags) {
   const id = positionals[0]
-  if (!id) throw new VaultError('which skill? Usage: vault add <skill-id> --key <KEY>')
+  if (!id) throw new VaultError('which skill? Usage: npx lazybiz add <skill-id> --key <KEY>')
 
   const baseUrl = resolveBaseUrl(flags.baseUrl)
   const key = requireKey(flags)
@@ -231,7 +234,7 @@ async function main() {
   try {
     parsed = parseArgs(process.argv.slice(2))
   } catch (e) {
-    console.error(`vault: ${e.message}`)
+    console.error(`lazybiz: ${e.message}`)
     process.exit(2)
   }
   const { command, positionals, flags } = parsed
@@ -248,7 +251,7 @@ async function main() {
   const commands = { add: cmdAdd, update: cmdUpdate, list: cmdList }
   const run = commands[command]
   if (!run) {
-    console.error(`vault: unknown command "${command}". Try: add, update, list, --help`)
+    console.error(`lazybiz: unknown command "${command}". Try: add, update, list, --help`)
     process.exit(2)
   }
 
@@ -256,7 +259,7 @@ async function main() {
     await run(positionals, flags)
   } catch (e) {
     if (e instanceof VaultError || e instanceof InstallError) {
-      console.error(`vault: ${e.message}`)
+      console.error(`lazybiz: ${e.message}`)
       process.exit(1)
     }
     throw e
@@ -264,6 +267,6 @@ async function main() {
 }
 
 main().catch((e) => {
-  console.error(`vault: unexpected failure — ${e?.stack ?? e}`)
+  console.error(`lazybiz: unexpected failure — ${e?.stack ?? e}`)
   process.exit(1)
 })

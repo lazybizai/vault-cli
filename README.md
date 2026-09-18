@@ -1,4 +1,4 @@
-# vault-cli
+# lazybiz
 
 Install Lazy Biz vault skills into your own machine with one command.
 
@@ -15,17 +15,20 @@ Open the skill in Whop and copy the command. It already carries your personal
 install key:
 
 ```bash
-npx github:lazybizai/vault-cli add brand-kit --key YOUR_KEY
+npx lazybiz add brand-kit --key YOUR_KEY
 ```
 
 That puts the skill in `~/.agents/skills/brand-kit/` and, if you have a
 `~/.claude` directory, links it into `~/.claude/skills/` so Claude Code picks it
 up. Then tell your agent: *"use the brand-kit skill"*.
 
+`npx github:lazybizai/vault-cli add …` also works — it is the same code from
+the public mirror, and the older command in your notes keeps running.
+
 ## Keep them current
 
 ```bash
-npx github:lazybizai/vault-cli update --key YOUR_KEY
+npx lazybiz update --key YOUR_KEY
 ```
 
 Compares every installed skill against the vault and reinstalls only the ones
@@ -34,7 +37,7 @@ whose version moved. Add a skill id to update just that one.
 ## See what is available
 
 ```bash
-npx github:lazybizai/vault-cli list
+npx lazybiz list
 ```
 
 Shows the whole catalog with each skill's state: installed, update available,
@@ -82,3 +85,6 @@ away from Whop's proxy. Use the `.whop.site` address, not `.whop.app`.
 **"already exists and was not installed by this CLI"** — you have your own
 folder by that name. Move it aside, or use `--force` if you want the vault's
 version to win.
+
+**An old version keeps running** — npx caches what it downloaded. Ask for the
+newest one with `npx lazybiz@latest add …`.
