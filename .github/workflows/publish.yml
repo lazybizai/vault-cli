@@ -26,11 +26,12 @@ jobs:
           node-version: 20
           registry-url: 'https://registry.npmjs.org'
 
-      # npm's OIDC support landed in npm 11.5.1; setup-node still ships an older
-      # npm with Node 20. Without this, `npm publish` asks to be handed a
-      # credential instead of minting its own.
+      # npm's OIDC support landed in npm 11.5.1, and Node 20 still bundles npm
+      # 10. Without this, `npm publish` asks to be handed a credential instead
+      # of minting its own. Pinned to 11.x on purpose: `npm@latest` is npm 12,
+      # which refuses to install on Node 20 and fails the run before the guard.
       - name: use an npm that speaks OIDC
-        run: npm install -g npm@latest
+        run: npm install -g 'npm@^11.5.1'
 
       # A tag that disagrees with package.json would publish the wrong version,
       # or fail deep inside `npm publish` where the error reads as a registry
