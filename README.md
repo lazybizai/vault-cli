@@ -74,6 +74,33 @@ Anyone holding the key can download the vault from any terminal. Treat it like a
 password: do not paste it into a shared channel or commit it. If it leaks, ask
 for a new one — the old one stops working.
 
+## Releasing
+
+Maintainers only. A release is a tag — there is no token to hold and nothing to
+type into a prompt.
+
+1. Bump `version` in `package.json`. npm refuses to republish a version that
+   already exists, so this is the step that decides what gets published.
+2. Commit, then mirror: `scripts/mirror.sh` copies `bin/`, `src/`,
+   `package.json`, `README.md` and `.github/` into `lazybizai/vault-cli`.
+3. Tag the mirror's `HEAD` with `v<version>` and push the tag. The
+   `publish` workflow runs, checks that the tag and `package.json` agree, and
+   runs `npm publish --provenance --access public`.
+
+The workflow authenticates with npm through **Trusted Publishing**: npm trusts
+the repository `lazybizai/vault-cli` and the workflow file `publish.yml`, and
+GitHub mints a short-lived OIDC credential for the run. No long-lived
+credential exists, which is also why publishing from a laptop no longer works —
+tag the mirror instead.
+
+Every release carries **provenance**: npm records which commit and which
+workflow built the tarball, and shows it on the package page. Check a release
+with `npm view lazybiz@<version> --json` and look for `dist.attestations`.
+
+If a tag disagrees with `package.json`, the run fails in the version guard
+before anything reaches npm. Delete the tag
+(`git push --delete origin v<version>`), fix the version and tag again.
+
 ## Troubleshooting
 
 **"the vault rejected your install key"** — the key is wrong, or it was
