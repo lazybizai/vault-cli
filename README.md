@@ -81,11 +81,13 @@ type into a prompt.
 
 1. Bump `version` in `package.json`. npm refuses to republish a version that
    already exists, so this is the step that decides what gets published.
-2. Commit, then mirror: `scripts/mirror.sh` copies `bin/`, `src/`,
-   `package.json`, `README.md` and `.github/` into `lazybizai/vault-cli`.
-3. Tag the mirror's `HEAD` with `v<version>` and push the tag. The
-   `publish` workflow runs, checks that the tag and `package.json` agree, and
-   runs `npm publish --provenance --access public`.
+2. Commit, then run `scripts/mirror.sh`. It copies `bin/`, `src/`,
+   `package.json`, `README.md` and `.github/` into `lazybizai/vault-cli`, then
+   tags the mirror's `HEAD` with `v<version>` and pushes the tag — unless that
+   tag already exists, in which case the version is already released and
+   nothing is tagged.
+3. The `publish` workflow runs on the tag, checks that the tag and
+   `package.json` agree, and runs `npm publish --provenance --access public`.
 
 The workflow authenticates with npm through **Trusted Publishing**: npm trusts
 the repository `lazybizai/vault-cli` and the workflow file `publish.yml`, and
