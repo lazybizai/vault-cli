@@ -2,6 +2,10 @@
   "name": "lazybiz",
   "version": "1.0.1",
   "description": "Install and update Lazy Biz vault skills into your agent's skills folder.",
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/lazybizai/vault-cli.git"
+  },
   "type": "module",
   "bin": {
     "lazybiz": "bin/vault.mjs"
