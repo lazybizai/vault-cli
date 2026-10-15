@@ -60,18 +60,28 @@ export async function fetchCatalog(baseUrl) {
 }
 
 /**
- * Download one skill's zip. The key is a bearer secret and goes in the query
- * string because that is what the route accepts; it is never logged.
+ * Download one skill's zip. `cred` is `{ key }` (the old install key, sent in
+ * the query string because that is what the route accepts) or `{ token }` (the
+ * login's access token, sent as a Bearer header). Neither is ever logged.
  */
-export async function downloadZip(baseUrl, id, key) {
-  const url = `${baseUrl}/api/install/${encodeURIComponent(id)}?key=${encodeURIComponent(key)}`
+export async function downloadZip(baseUrl, id, cred) {
+  const url =
+    `${baseUrl}/api/install/${encodeURIComponent(id)}` + (cred.key ? `?key=${encodeURIComponent(cred.key)}` : '')
   let res
   try {
-    res = await fetch(url)
+    res = await fetch(url, cred.token ? { headers: { Authorization: `Bearer ${cred.token}` } } : undefined)
   } catch (e) {
     throw new VaultError(`could not reach ${baseUrl} — ${e.message}`)
   }
 
+  if ((res.status === 401 || res.status === 403) && cred.token) {
+    const body = await res.json().catch(() => ({}))
+    throw new VaultError(
+      res.status === 403
+        ? `the vault refused the download: ${body.error ?? 'no active membership'}.\n  Nothing was installed.`
+        : 'your login was not accepted. Run: npx lazybiz login\n  Nothing was installed.',
+    )
+  }
   if (res.status === 401 || res.status === 403) {
     throw new VaultError(
       'the vault rejected your install key.\n' +

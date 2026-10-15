@@ -6,16 +6,27 @@ A skill is a folder your coding agent reads: instructions, reference notes and
 sometimes scripts. This CLI downloads the ones you have access to, puts them
 where your agent looks for them, and keeps them current.
 
-Requires **Node 18 or newer**. Nothing else — no install, no account, no
-dependencies.
+Requires **Node 18 or newer** and a Lazy Biz membership on Whop. Nothing
+else — no install, no dependencies.
+
+## Sign in once
+
+```bash
+npx lazybiz login
+```
+
+Your browser opens, you sign in with your Whop account, and you are done. The
+login is saved on this machine and renews itself; you do not need to do this
+again. On a machine without a browser (SSH, a server) the CLI prints a link
+instead: open it on any device, sign in, and paste the code the page shows back
+into the terminal. `--no-browser` forces that path.
+
+`npx lazybiz logout` forgets the login on this machine.
 
 ## Install a skill
 
-Open the skill in Whop and copy the command. It already carries your personal
-install key:
-
 ```bash
-npx lazybiz add brand-kit --key YOUR_KEY
+npx lazybiz add brand-kit
 ```
 
 That puts the skill in `~/.agents/skills/brand-kit/` and, if you have a
@@ -28,7 +39,7 @@ the public mirror, and the older command in your notes keeps running.
 ## Keep them current
 
 ```bash
-npx lazybiz update --key YOUR_KEY
+npx lazybiz update
 ```
 
 Compares every installed skill against the vault and reinstalls only the ones
@@ -47,7 +58,8 @@ or coming soon. The catalog needs no key.
 
 | Option | What it does |
 |---|---|
-| `--key <KEY>` | Your install key. Also read from `$VAULT_KEY`. |
+| `--no-browser` | `login`: print a link and read back a code instead of opening a browser. |
+| `--key <KEY>` | The older install key from Skills Vault, instead of `login`. Also read from `$VAULT_KEY`. |
 | `--base-url <URL>` | Which vault to talk to. Default `https://lazybiz-skills.whop.site`, also read from `$VAULT_BASE_URL`. |
 | `--global` | Install into `~/.agents/skills`. This is the default. |
 | `--dir <PATH>` | Install somewhere else instead. Also read from `$VAULT_SKILLS_DIR`. |
@@ -68,11 +80,13 @@ it does not break the skill, but `update` will stop tracking it.
 have a hand-written `~/.agents/skills/writing/`, `add writing` stops and says so
 rather than replacing it. `--force` overrides that, and deletes what was there.
 
-## Your install key is a secret
+## Your login is a secret
 
-Anyone holding the key can download the vault from any terminal. Treat it like a
-password: do not paste it into a shared channel or commit it. If it leaks, ask
-for a new one — the old one stops working.
+The login lives in `~/.config/lazybiz/auth.json` (`%APPDATA%\\lazybiz` on
+Windows), readable only by you. Anyone holding that file — or the older install
+key — can download the vault while your membership is active. Do not commit it
+or paste it anywhere. `logout` revokes it. Every download checks that your
+membership is still active, so a cancelled membership stops working at once.
 
 ## Releasing
 
@@ -105,8 +119,13 @@ before anything reaches npm. Delete the tag
 
 ## Troubleshooting
 
+**"you are not signed in"** — run `npx lazybiz login`.
+
+**"your login has expired"** — it was unused for two months, or you logged out
+elsewhere. Run `npx lazybiz login` again.
+
 **"the vault rejected your install key"** — the key is wrong, or it was
-replaced. Open the skill in Whop and copy the command again.
+replaced. Use `npx lazybiz login` instead.
 
 **"returned JSON instead of a zip"** — you are pointed at a host that redirects
 away from Whop's proxy. Use the `.whop.site` address, not `.whop.app`.

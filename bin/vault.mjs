@@ -2,9 +2,11 @@
 /**
  * lazybiz — install and update Lazy Biz vault skills.
  *
- *   npx lazybiz add <skill-id> --key <KEY>
- *   npx lazybiz update --key <KEY>
+ *   npx lazybiz login
+ *   npx lazybiz add <skill-id>
+ *   npx lazybiz update
  *   npx lazybiz list
+ *   npx lazybiz logout
  *
  * Published on npm as `lazybiz`; `npx github:lazybizai/vault-cli` still works
  * for anyone who copied the old command.
@@ -25,6 +27,7 @@ import {
   resolveKey,
 } from '../src/api.mjs'
 import { installSkill, InstallError } from '../src/install.mjs'
+import { accessToken, configDir, login, logout } from '../src/auth.mjs'
 import { MARKER, aliasRoot, linkAlias, listInstalled, readMarker, skillsRoot } from '../src/paths.mjs'
 
 const pkg = JSON.parse(
@@ -34,15 +37,18 @@ const pkg = JSON.parse(
 const HELP = `lazybiz ${pkg.version} — install Lazy Biz vault skills
 
 Usage
-  npx lazybiz add <skill-id> --key <KEY>     install or reinstall one skill
-  npx lazybiz update [skill-id] --key <KEY>  reinstall every installed skill whose version changed
-  npx lazybiz list [--key <KEY>]             show what is installed and what is available
-  npx lazybiz --help                         this text
-  npx lazybiz --version                      print the CLI version
+  npx lazybiz login                 sign in with your Whop account (once per machine)
+  npx lazybiz add <skill-id>        install or reinstall one skill
+  npx lazybiz update [skill-id]     reinstall every installed skill whose version changed
+  npx lazybiz list                  show what is installed and what is available
+  npx lazybiz logout                forget the login on this machine
+  npx lazybiz --help                this text
+  npx lazybiz --version             print the CLI version
 
 Options
-  --key <KEY>        your personal install key. Copy the whole command from the
-                     skill's page in Whop and it is already filled in.
+  --no-browser       login: print a link to open anywhere, then paste the code
+                     the page shows. Used automatically when there is no display.
+  --key <KEY>        the older install key from Skills Vault, instead of login.
                      Falls back to $VAULT_KEY.
   --base-url <URL>   the vault to talk to. Default ${DEFAULT_BASE_URL}
                      (or $VAULT_BASE_URL).
@@ -55,7 +61,8 @@ Where things land
   ~/.agents/skills/<skill-id>/            the skill itself, plus a ${MARKER} marker
   ~/.claude/skills/<skill-id>             a symlink to it, when ~/.claude exists
 
-Your key is a secret. Anyone holding it can download the vault.
+Your login is kept in ${configDir()}/auth.json and renews itself.
+It is a secret, like the install key: anyone holding it can download the vault.
 `
 
 /** Parse argv into {command, positionals, flags}. Unknown flags are an error. */
@@ -65,7 +72,7 @@ function parseArgs(argv) {
     '--base-url': 'baseUrl',
     '--dir': 'dir',
   }
-  const booleans = { '--global': 'global', '--force': 'force', '--help': 'help', '-h': 'help', '--version': 'version', '-v': 'version' }
+  const booleans = { '--no-browser': 'noBrowser', '--global': 'global', '--force': 'force', '--help': 'help', '-h': 'help', '--version': 'version', '-v': 'version' }
   const flags = {}
   const positionals = []
 
@@ -89,16 +96,17 @@ function parseArgs(argv) {
   return { command: positionals[0], positionals: positionals.slice(1), flags }
 }
 
-function requireKey(flags) {
+/** The credential for downloads: an explicit key wins, then the saved login. */
+async function requireCred(flags) {
   const key = resolveKey(flags.key)
-  if (!key) {
-    throw new VaultError(
-      'no install key.\n' +
-        '  Open the skill in Whop and copy the command — it carries your key.\n' +
-        '  Or pass --key <KEY>, or set $VAULT_KEY.',
-    )
-  }
-  return key
+  if (key) return { key }
+  const token = await accessToken()
+  if (token) return { token }
+  throw new VaultError(
+    'you are not signed in.\n' +
+      '  Run: npx lazybiz login   (signs in with your Whop account)\n' +
+      '  Or pass --key <KEY> from the skill page in Whop.',
+  )
 }
 
 function findInCatalog(catalog, id) {
@@ -116,8 +124,8 @@ function findInCatalog(catalog, id) {
 }
 
 /** Download, unpack and alias one skill. Returns a printable summary. */
-async function installOne({ entry, key, baseUrl, root, alias, force }) {
-  const zip = await downloadZip(baseUrl, entry.id, key)
+async function installOne({ entry, cred, baseUrl, root, alias, force }) {
+  const zip = await downloadZip(baseUrl, entry.id, cred)
   const { files, replaced } = installSkill({
     root,
     id: entry.id,
@@ -132,10 +140,10 @@ async function installOne({ entry, key, baseUrl, root, alias, force }) {
 
 async function cmdAdd(positionals, flags) {
   const id = positionals[0]
-  if (!id) throw new VaultError('which skill? Usage: npx lazybiz add <skill-id> --key <KEY>')
+  if (!id) throw new VaultError('which skill? Usage: npx lazybiz add <skill-id>')
 
   const baseUrl = resolveBaseUrl(flags.baseUrl)
-  const key = requireKey(flags)
+  const cred = await requireCred(flags)
   const root = skillsRoot(flags)
   const alias = aliasRoot(flags)
 
@@ -144,7 +152,7 @@ async function cmdAdd(positionals, flags) {
     throw new VaultError(`"${id}" is announced but has no file yet. Nothing to install.`)
   }
 
-  const summary = await installOne({ entry, key, baseUrl, root, alias, force: flags.force })
+  const summary = await installOne({ entry, cred, baseUrl, root, alias, force: flags.force })
   console.log(
     `${summary.replaced ? 'Reinstalled' : 'Installed'} ${entry.id} v${entry.version} ` +
       `(${summary.files} files) in ${path.join(root, entry.id)}`,
@@ -159,7 +167,7 @@ async function cmdAdd(positionals, flags) {
 
 async function cmdUpdate(positionals, flags) {
   const baseUrl = resolveBaseUrl(flags.baseUrl)
-  const key = requireKey(flags)
+  const cred = await requireCred(flags)
   const root = skillsRoot(flags)
   const alias = aliasRoot(flags)
 
@@ -170,10 +178,10 @@ async function cmdUpdate(positionals, flags) {
     if (only) {
       throw new VaultError(
         `"${only}" is not installed in ${root} (no ${MARKER}).\n` +
-          `  Install it first: vault add ${only} --key <KEY>`,
+          `  Install it first: npx lazybiz add ${only}`,
       )
     }
-    console.log(`Nothing installed in ${root} yet. Start with: vault add <skill-id> --key <KEY>`)
+    console.log(`Nothing installed in ${root} yet. Start with: npx lazybiz add <skill-id>`)
     return
   }
 
@@ -193,7 +201,7 @@ async function cmdUpdate(positionals, flags) {
     console.log(`Up to date — ${installed.length} skill(s) match the vault.`)
   }
   for (const { local, remote } of stale) {
-    const summary = await installOne({ entry: remote, key, baseUrl, root, alias, force: true })
+    const summary = await installOne({ entry: remote, cred, baseUrl, root, alias, force: true })
     console.log(`Updated ${remote.id} ${local.version} -> ${remote.version} (${summary.files} files)`)
   }
   for (const local of gone) {
@@ -229,6 +237,17 @@ async function cmdList(_positionals, flags) {
   console.log(`\n${catalog.length} skill(s) in the vault.`)
 }
 
+async function cmdLogin(_positionals, flags) {
+  await login({ browser: flags.noBrowser ? false : undefined })
+  console.log(`\nSigned in. Your login is saved in ${configDir()} and renews itself.`)
+  console.log('Next: npx lazybiz list')
+}
+
+async function cmdLogout() {
+  const was = await logout()
+  console.log(was ? 'Signed out on this machine.' : 'You were not signed in on this machine.')
+}
+
 async function main() {
   let parsed
   try {
@@ -248,10 +267,10 @@ async function main() {
     return
   }
 
-  const commands = { add: cmdAdd, update: cmdUpdate, list: cmdList }
+  const commands = { add: cmdAdd, update: cmdUpdate, list: cmdList, login: cmdLogin, logout: cmdLogout }
   const run = commands[command]
   if (!run) {
-    console.error(`lazybiz: unknown command "${command}". Try: add, update, list, --help`)
+    console.error(`lazybiz: unknown command "${command}". Try: login, add, update, list, logout, --help`)
     process.exit(2)
   }
 
