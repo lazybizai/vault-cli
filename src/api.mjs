@@ -20,11 +20,6 @@ export function resolveBaseUrl(flag) {
   return url
 }
 
-export function resolveKey(flag) {
-  const key = (flag || process.env.VAULT_KEY || '').trim()
-  return key || null
-}
-
 async function getJson(url, what) {
   let res
   try {
@@ -49,7 +44,7 @@ async function getJson(url, what) {
 
 /**
  * The catalog. Ungated on purpose — it carries ids, names and versions only, so
- * a version comparison never needs the key. The bytes still do.
+ * a version comparison never needs a login. The bytes still do.
  */
 export async function fetchCatalog(baseUrl) {
   const body = await getJson(`${baseUrl}/api/skills`, 'catalog lookup')
@@ -60,33 +55,24 @@ export async function fetchCatalog(baseUrl) {
 }
 
 /**
- * Download one skill's zip. `cred` is `{ key }` (the old install key, sent in
- * the query string because that is what the route accepts) or `{ token }` (the
- * login's access token, sent as a Bearer header). Neither is ever logged.
+ * Download one skill's zip. `cred` is `{ token }`: the login's access token,
+ * sent as a Bearer header. It is never logged.
  */
 export async function downloadZip(baseUrl, id, cred) {
-  const url =
-    `${baseUrl}/api/install/${encodeURIComponent(id)}` + (cred.key ? `?key=${encodeURIComponent(cred.key)}` : '')
+  const url = `${baseUrl}/api/install/${encodeURIComponent(id)}`
   let res
   try {
-    res = await fetch(url, cred.token ? { headers: { Authorization: `Bearer ${cred.token}` } } : undefined)
+    res = await fetch(url, { headers: { Authorization: `Bearer ${cred.token}` } })
   } catch (e) {
     throw new VaultError(`could not reach ${baseUrl} — ${e.message}`)
   }
 
-  if ((res.status === 401 || res.status === 403) && cred.token) {
+  if (res.status === 401 || res.status === 403) {
     const body = await res.json().catch(() => ({}))
     throw new VaultError(
       res.status === 403
         ? `the vault refused the download: ${body.error ?? 'no active membership'}.\n  Nothing was installed.`
         : 'your login was not accepted. Run: npx lazybiz login\n  Nothing was installed.',
-    )
-  }
-  if (res.status === 401 || res.status === 403) {
-    throw new VaultError(
-      'the vault rejected your install key.\n' +
-        '  Open the skill in Whop and copy the command again — it carries a fresh key.\n' +
-        '  Nothing was installed.',
     )
   }
   if (res.status === 404) {

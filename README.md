@@ -59,7 +59,6 @@ or coming soon. The catalog needs no key.
 | Option | What it does |
 |---|---|
 | `--no-browser` | `login`: print a link and read back a code instead of opening a browser. |
-| `--key <KEY>` | The older install key from Skills Vault, instead of `login`. Also read from `$VAULT_KEY`. |
 | `--base-url <URL>` | Which vault to talk to. Default `https://lazybiz-skills.whop.site`, also read from `$VAULT_BASE_URL`. |
 | `--global` | Install into `~/.agents/skills`. This is the default. |
 | `--dir <PATH>` | Install somewhere else instead. Also read from `$VAULT_SKILLS_DIR`. |
@@ -83,8 +82,8 @@ rather than replacing it. `--force` overrides that, and deletes what was there.
 ## Your login is a secret
 
 The login lives in `~/.config/lazybiz/auth.json` (`%APPDATA%\\lazybiz` on
-Windows), readable only by you. Anyone holding that file — or the older install
-key — can download the vault while your membership is active. Do not commit it
+Windows), readable only by you. Anyone holding that file can download the vault
+while your membership is active. Do not commit it
 or paste it anywhere. `logout` revokes it. Every download checks that your
 membership is still active, so a cancelled membership stops working at once.
 
@@ -124,8 +123,9 @@ before anything reaches npm. Delete the tag
 **"your login has expired"** — it was unused for two months, or you logged out
 elsewhere. Run `npx lazybiz login` again.
 
-**"the vault rejected your install key"** — the key is wrong, or it was
-replaced. Use `npx lazybiz login` instead.
+**"install keys are retired"** — you ran an old command with `--key`. Keys
+stopped working in October 2026. Run `npx lazybiz login` once, then the same
+command without `--key`.
 
 **"returned JSON instead of a zip"** — you are pointed at a host that redirects
 away from Whop's proxy. Use the `.whop.site` address, not `.whop.app`.

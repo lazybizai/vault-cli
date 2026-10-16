@@ -24,7 +24,6 @@ import {
   downloadZip,
   fetchCatalog,
   resolveBaseUrl,
-  resolveKey,
 } from '../src/api.mjs'
 import { installSkill, InstallError } from '../src/install.mjs'
 import { accessToken, configDir, login, logout } from '../src/auth.mjs'
@@ -48,8 +47,6 @@ Usage
 Options
   --no-browser       login: print a link to open anywhere, then paste the code
                      the page shows. Used automatically when there is no display.
-  --key <KEY>        the older install key from Skills Vault, instead of login.
-                     Falls back to $VAULT_KEY.
   --base-url <URL>   the vault to talk to. Default ${DEFAULT_BASE_URL}
                      (or $VAULT_BASE_URL).
   --global           install into ~/.agents/skills. This is the default.
@@ -62,13 +59,12 @@ Where things land
   ~/.claude/skills/<skill-id>             a symlink to it, when ~/.claude exists
 
 Your login is kept in ${configDir()}/auth.json and renews itself.
-It is a secret, like the install key: anyone holding it can download the vault.
+It is a secret: anyone holding it can download the vault.
 `
 
 /** Parse argv into {command, positionals, flags}. Unknown flags are an error. */
 function parseArgs(argv) {
   const known = {
-    '--key': 'key',
     '--base-url': 'baseUrl',
     '--dir': 'dir',
   }
@@ -84,6 +80,15 @@ function parseArgs(argv) {
     }
     const eq = arg.indexOf('=')
     const name = eq > 0 ? arg.slice(0, eq) : arg
+    if (name === '--key') {
+      // The install key is gone (the vault no longer issues or accepts one).
+      // Say what replaced it instead of "unknown option".
+      throw new VaultError(
+        'install keys are retired. Sign in with your Whop account instead:\n' +
+          '  npx lazybiz login\n' +
+          '  Then run the same command without --key.',
+      )
+    }
     if (name in known) {
       const value = eq > 0 ? arg.slice(eq + 1) : argv[++i]
       if (value === undefined) throw new VaultError(`${name} needs a value`)
@@ -96,17 +101,11 @@ function parseArgs(argv) {
   return { command: positionals[0], positionals: positionals.slice(1), flags }
 }
 
-/** The credential for downloads: an explicit key wins, then the saved login. */
-async function requireCred(flags) {
-  const key = resolveKey(flags.key)
-  if (key) return { key }
+/** The credential for downloads: the saved login's access token. */
+async function requireCred() {
   const token = await accessToken()
   if (token) return { token }
-  throw new VaultError(
-    'you are not signed in.\n' +
-      '  Run: npx lazybiz login   (signs in with your Whop account)\n' +
-      '  Or pass --key <KEY> from the skill page in Whop.',
-  )
+  throw new VaultError('you are not signed in.\n  Run: npx lazybiz login   (signs in with your Whop account)')
 }
 
 function findInCatalog(catalog, id) {
@@ -143,7 +142,7 @@ async function cmdAdd(positionals, flags) {
   if (!id) throw new VaultError('which skill? Usage: npx lazybiz add <skill-id>')
 
   const baseUrl = resolveBaseUrl(flags.baseUrl)
-  const cred = await requireCred(flags)
+  const cred = await requireCred()
   const root = skillsRoot(flags)
   const alias = aliasRoot(flags)
 
@@ -167,7 +166,7 @@ async function cmdAdd(positionals, flags) {
 
 async function cmdUpdate(positionals, flags) {
   const baseUrl = resolveBaseUrl(flags.baseUrl)
-  const cred = await requireCred(flags)
+  const cred = await requireCred()
   const root = skillsRoot(flags)
   const alias = aliasRoot(flags)
 
@@ -214,8 +213,8 @@ async function cmdList(_positionals, flags) {
   const root = skillsRoot(flags)
   const installed = new Map(listInstalled(root).map((s) => [s.id, s]))
 
-  // The catalog route needs no key — a version comparison should not have to
-  // pass the download gate. --key is accepted so one habit fits every command.
+  // The catalog route needs no login — a version comparison should not have to
+  // pass the download gate.
   const catalog = await fetchCatalog(baseUrl)
 
   console.log(`${baseUrl}  ->  ${root}\n`)
